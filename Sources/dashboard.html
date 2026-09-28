@@ -1,0 +1,1057 @@
+<title>Token 用量診斷</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --surface-2:#eef1f5; --line:#dfe3e9; --line-2:#c9cfd8;
+  --ink:#10141a; --ink-2:#465061; --muted:#768092;
+  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.12);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#4a3aa7;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --warn-ink:#8a5a00; --crit-ink:#b02a2a; --good-ink:#0a6e0a;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0e1116; --surface:#161a21; --surface-2:#1d222b; --line:#262c36; --line-2:#343c48;
+    --ink:#edf1f6; --ink-2:#b2bac7; --muted:#7e8898;
+    --accent:#3987e5; --accent-soft:rgba(57,135,229,.16);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#9085e9;
+    --warn-ink:#fab219; --crit-ink:#ff7b7b; --good-ink:#4fd14f;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1116; --surface:#161a21; --surface-2:#1d222b; --line:#262c36; --line-2:#343c48;
+  --ink:#edf1f6; --ink-2:#b2bac7; --muted:#7e8898;
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.16);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#9085e9;
+  --warn-ink:#fab219; --crit-ink:#ff7b7b; --good-ink:#4fd14f;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:26px;font-weight:900}
+h2{font-size:16px;font-weight:700}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;font-family:var(--mono)}
+.muted{color:var(--muted)}
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.top p{margin:4px 0 0;color:var(--ink-2);max-width:62ch}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.panel-h{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.panel-h p{margin:0;color:var(--muted);font-size:13px}
+.section-h{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;margin-top:8px}
+.section-h h2{font-size:19px}
+.section-h p{margin:0;color:var(--muted);font-size:13px}
+button,.btn{font:inherit;font-size:13px;border-radius:6px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink);padding:7px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+button:hover,.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible,.btn:focus-within,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+select{font:inherit;font-size:13px;padding:6px 8px;border-radius:6px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--ink);max-width:100%}
+.status{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2);white-space:nowrap}
+.chip.sample{border-color:var(--warn);color:var(--warn-ink)}
+.chip.real{border-color:var(--good);color:var(--good-ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--muted)}
+.dot.on{background:var(--good)} .dot.idle{background:var(--line-2)} .dot.na{background:transparent;border:1.5px solid var(--muted)}
+.pulse{animation:pl 1.8s ease-in-out infinite}
+@keyframes pl{50%{opacity:.35}}
+code{font-family:var(--mono);font-size:.92em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.none{padding:16px;border:1px dashed var(--line-2);border-radius:8px;color:var(--muted);text-align:center}
+.notice{font-size:13px;color:var(--ink-2);background:var(--surface-2);border-radius:6px;padding:10px 12px}
+
+.drop{border:1.5px dashed var(--line-2);border-radius:8px;padding:14px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.limits{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.lim{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.lim .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lim .h b{font-size:13.5px;font-weight:500}
+.lim .rem{font-family:var(--mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.meter{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:0 4px 4px 0}
+.lim .s{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.plan{font-size:11.5px;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:2px;color:var(--ink-2)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi .v{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.sw.round{border-radius:50%}
+
+.ov{position:relative;width:100%;overflow-x:auto}
+.ov svg{display:block}
+
+.tl{display:flex;flex-direction:column}
+.tl-gh{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:14px 0 6px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.tl-gh b{font-size:14px}
+.tl-gh span{font-size:12.5px;color:var(--muted)}
+.round{display:grid;grid-template-columns:48px 30px minmax(0,1fr);column-gap:10px}
+.rtime{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;padding-top:14px;font-variant-numeric:tabular-nums}
+.rail{position:relative}
+.rail::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--line)}
+.round:first-child .rail::before{top:22px}
+.round:last-child .rail::before{bottom:auto;height:22px}
+.round:first-child:last-child .rail::before{display:none}
+.node{position:absolute;left:50%;top:22px;transform:translate(-50%,-50%);border-radius:50%;background:var(--s1);box-shadow:0 0 0 3px var(--surface)}
+.node.warn{background:var(--warn)} .node.crit{background:var(--crit)}
+.rcard{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-block:5px;background:var(--surface);cursor:pointer;min-width:0}
+.rcard:hover{border-color:var(--line-2)}
+.round.open .rcard{border-color:var(--accent);cursor:default}
+.round.sel .rcard{box-shadow:0 0 0 2px var(--accent-soft)}
+.rtop{display:flex;gap:14px;justify-content:space-between;align-items:flex-start}
+.prompt{font-size:13.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.round.open .prompt{-webkit-line-clamp:unset;display:block}
+.rtot{text-align:right;white-space:nowrap}
+.rtot b{font-family:var(--mono);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.rtot small{display:block;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:2px 12px;font-variant-numeric:tabular-nums}
+.stack{display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px;margin-top:8px}
+.stack i{display:block;height:100%;min-width:2px}
+.flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.sev{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:999px;display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.sev.crit{color:var(--crit-ink);background:rgba(208,59,59,.12)}
+.sev.warn{color:var(--warn-ink);background:rgba(250,178,25,.16)}
+.sev.info{color:var(--accent);background:var(--accent-soft);font-weight:500}
+.more{align-self:center;margin-top:12px}
+
+.rdet{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:16px;cursor:auto}
+.rdet h3{font-size:13px;font-weight:700;margin-bottom:6px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.brk{display:flex;flex-direction:column;gap:4px}
+.brk .row{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center;font-size:13px}
+.brk .row .v{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.brk .grp{font-size:11.5px;letter-spacing:.08em;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between;font-family:var(--mono)}
+.brk .grp:first-child{margin-top:0}
+.reasons{display:flex;flex-direction:column;gap:8px}
+.reason{font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start}
+.reason p{margin:0;color:var(--ink-2)}
+.reason .fix{font-size:12.5px;color:var(--muted);margin-top:2px}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:720px}
+th{font-weight:500;color:var(--muted);text-align:left;font-size:11.5px;padding:5px 8px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.flag-crit td:first-child{box-shadow:inset 3px 0 0 var(--crit)}
+tr.flag-warn td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.act{min-width:200px}
+.act .tl1{display:block}
+.act .tl1 span{font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all}
+.final{font-size:13px;color:var(--ink-2);background:var(--surface-2);border-radius:6px;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+
+.two{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(90px,180px) 1fr 64px;gap:10px;align-items:center;font-size:13px}
+.bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .trk{height:12px;background:var(--surface-2);border-radius:0 4px 4px 0;position:relative}
+.bar .fill{position:absolute;inset:0 auto 0 0;border-radius:0 4px 4px 0}
+.bar .val{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.daily{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px}
+.daily .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0}
+.daily .col i{display:block;background:var(--s1);border-radius:3px 3px 0 0;min-height:2px;opacity:.55}
+.daily .col.today i{opacity:1}
+.daily .col:hover i{opacity:.85}
+.dlabels{display:flex;gap:3px;margin-top:4px}
+.dlabels span{flex:1;text-align:center;font-size:10.5px;color:var(--muted);font-family:var(--mono);min-width:0;overflow:hidden}
+
+.findings{display:flex;flex-direction:column;gap:10px}
+.f{display:grid;grid-template-columns:4px 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.f .stripe{background:var(--muted)}
+.f.crit .stripe{background:var(--crit)} .f.warn .stripe{background:var(--warn)} .f.info .stripe{background:var(--s1)}
+.f .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.f .head{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.f .head h3{font-size:14.5px}
+.f .impact{margin-left:auto;font-size:12.5px;color:var(--ink-2)}
+.f p{margin:0;color:var(--ink-2);max-width:78ch}
+.f .fixbox{background:var(--surface-2);border-radius:6px;padding:8px 10px;font-size:13px}
+.ex{display:flex;flex-wrap:wrap;gap:6px}
+.ex button{font-size:12px;padding:3px 8px;font-family:var(--mono)}
+
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.src{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.src .h{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.src .h b{font-size:13.5px}
+.src .p{font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all}
+.src .m{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.src.off{opacity:.62}
+.src button{align-self:flex-start;font-size:12px;padding:3px 8px}
+
+.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.guide div{display:flex;flex-direction:column;gap:6px}
+.guide h3{font-size:14px}
+.guide li{color:var(--ink-2);font-size:13px}
+.guide ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+
+.tip{position:fixed;pointer-events:none;z-index:20;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:320px;line-height:1.5}
+.tip .t{font-weight:700;margin-bottom:2px}
+.tip .r{display:flex;justify-content:space-between;gap:16px}
+.tip .r span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+@media (max-width:900px){.two,.split,.guide{grid-template-columns:1fr}}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}.kpi .v{font-size:21px}.round{grid-template-columns:38px 22px minmax(0,1fr);column-gap:6px}.rtop{flex-direction:column;gap:4px}.rtot{text-align:left}.f .impact{margin-left:0;width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Claude Code · 專案 Token 診斷</div>
+      <h1>Token 用量診斷</h1>
+      <p>以「回合」為單位：你送出一則訊息，到 Claude 做完回覆。每個節點是一回合，看它的過程與結果各用了多少 Token，以及哪些回合異常。</p>
+    </div>
+    <div class="filters">
+      <select id="projFilter" aria-label="專案"></select>
+      <select id="range" aria-label="時間範圍">
+        <option value="1">今天</option>
+        <option value="7" selected>近 7 天</option>
+        <option value="30">近 30 天</option>
+        <option value="0">全部</option>
+      </select>
+      <div class="status" id="status"></div>
+    </div>
+  </header>
+
+  <section class="panel" id="limitPanel" aria-label="方案額度">
+    <div class="panel-h"><div><h2>方案額度剩餘<span id="planBadge"></span></h2><p id="limitNote">所有 Claude 工具共用，包括網頁與手機聊天</p></div></div>
+    <div class="limits" id="limits"></div>
+  </section>
+
+  <section class="panel" id="dropPanel" aria-label="載入記錄檔">
+    <div class="drop" id="drop">
+      <div style="flex:1;min-width:220px">
+        <b>網頁版需要手動載入 .jsonl 記錄</b>
+        <div class="muted" style="font-size:12.5px">自動監控與方案額度請使用 TokenMeter 系統列工具的「完整儀表板」。檔案只在瀏覽器裡解析。</div>
+      </div>
+      <div class="btns">
+        <label class="btn primary">選擇檔案<input type="file" id="fileIn" accept=".jsonl,.json,.txt" multiple></label>
+        <label class="btn">選擇資料夾<input type="file" id="dirIn" webkitdirectory multiple></label>
+        <button type="button" id="sampleBtn">載入範例</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-h"><h2 id="projTitle">專案診斷</h2><p id="projSub"></p></div>
+  <section class="kpis" id="kpis" aria-label="專案總覽"></section>
+
+  <section class="panel" aria-label="回合總覽">
+    <div class="panel-h">
+      <div><h2>回合總覽</h2><p>由左到右依時間排列，節點越大代表該回合用量越多。點節點可以跳到下方的回合。</p></div>
+      <div class="legend"><span><i class="sw round" style="background:var(--s1)"></i>正常</span><span><i class="sw round" style="background:var(--warn)"></i>偏高</span><span><i class="sw round" style="background:var(--crit)"></i>異常</span></div>
+    </div>
+    <div class="ov" id="ov"></div>
+  </section>
+
+  <section class="panel" aria-label="回合時間軸">
+    <div class="panel-h">
+      <div><h2>回合時間軸</h2><p>最新的對話在最上方，對話內依時間由上到下。點一個回合看過程與結果的明細。</p></div>
+      <label class="chip" style="cursor:pointer"><input type="checkbox" id="onlyFlag"> 只看偏高與異常</label>
+    </div>
+    <div class="legend" style="margin-bottom:6px" id="stackLegend"></div>
+    <div class="tl" id="tl"></div>
+    <button type="button" class="more" id="moreBtn" hidden>顯示更早的回合</button>
+  </section>
+
+  <div class="section-h"><h2>用量分析</h2><p>範圍內所有回合的彙整</p></div>
+  <div class="two">
+    <section class="panel" aria-label="每日用量">
+      <div class="panel-h"><div><h2>每日用量</h2><p id="dailyNote"></p></div></div>
+      <div class="daily" id="daily"></div>
+      <div class="dlabels" id="dailyLbl"></div>
+    </section>
+    <section class="panel" aria-label="依模型與專案">
+      <div class="panel-h"><div><h2>依模型與專案</h2><p>總 Token，上方為模型、下方為專案</p></div></div>
+      <div class="bars" id="modelBars"></div>
+      <div class="bars" id="projBars" style="margin-top:14px"></div>
+    </section>
+  </div>
+
+  <div class="two">
+    <section aria-label="改善建議">
+      <div class="panel-h" style="margin-bottom:10px"><div><h2>可以改善的習慣</h2><p>依影響大小排序，點按鈕跳到對應的回合</p></div></div>
+      <div class="findings" id="findings"></div>
+    </section>
+    <section class="panel" aria-label="哪種工具最吃 Token" style="align-self:start">
+      <div class="panel-h"><div><h2>哪種工具最吃 Token</h2><p>攜帶量 = 工具帶回的內容 × 之後被重送的次數</p></div></div>
+      <div class="bars" id="toolBars"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="srcPanel" aria-label="監控來源" hidden>
+    <div class="panel-h"><div><h2>監控來源</h2><p>TokenMeter 每 60 秒自動掃描這些位置</p></div><button type="button" id="refreshBtn">立即重新掃描</button></div>
+    <div class="srcs" id="srcs"></div>
+  </section>
+
+  <section class="panel guide" aria-label="說明">
+    <div>
+      <h3>過程與結果怎麼分</h3>
+      <ul>
+        <li><b>過程</b>：Claude 每想一次、每呼叫一次工具，都要把整段對話重新送進模型（大多是快取讀取），加上思考與工具呼叫本身的輸出；子代理也算在這裡</li>
+        <li><b>結果</b>：最後回覆給你的文字</li>
+        <li>工具帶回的內容大小由文字長度估算</li>
+      </ul>
+    </div>
+    <div>
+      <h3>怎麼判定異常</h3>
+      <ul>
+        <li>先跟這個專案平常的回合比：約當成本超過中位數 3 倍算偏高，6 倍算異常</li>
+        <li>再用固定規則說明原因：工具帶回大量內容、快取失效、大量輸出、整份寫檔、脈絡超過 120k、呼叫次數過多、子代理用量大</li>
+        <li>專案回合數少於 8 個時，改用所有專案的中位數</li>
+      </ul>
+    </div>
+    <div>
+      <h3>看不到的部分</h3>
+      <ul>
+        <li>claude.ai 網頁、手機、桌面版聊天，以及雲端執行的工作階段，沒有本機記錄</li>
+        <li>它們的用量只會反映在上方的方案額度</li>
+        <li>約當輸入量：快取寫入 ×1.25、快取讀取 ×0.1、輸出 ×5</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tm);
+const post = m => { try { window.webkit.messageHandlers.tm.postMessage(m); } catch(e){} };
+const S = { all: [], main: [], rounds: [], sources: [], limits: [], limitError: null, plan: null, limitUpdated: null,
+  sample: !APP, loaded: false, updated: null, fileCount: 0, open: null, sel: null, shown: 60 };
+
+/* ---------- utils ---------- */
+const fmt = n => { n = Math.round(n||0); const a = Math.abs(n);
+  if (a >= 1e9) return (n/1e9).toFixed(2)+'B';
+  if (a >= 1e6) return (n/1e6).toFixed(a>=1e7?1:2)+'M';
+  if (a >= 1e3) return (n/1e3).toFixed(a>=1e4?0:1)+'k';
+  return String(n); };
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const base = p => { if(!p) return ''; const a = String(p).split(/[\\/]/).filter(Boolean); return a[a.length-1]||p; };
+function estTok(s){ if(!s) return 0; let a=0,n=0; for(let i=0;i<s.length;i++){ s.charCodeAt(i)<128?a++:n++; } return Math.round(a/3.8 + n*0.95); }
+function toolLabel(n){
+  if (!n) return '其他';
+  if (n.startsWith('mcp__')) { const p = n.split('__'); return 'MCP · '+(p[1]||'').replace(/_/g,' '); }
+  if (n==='Task' || n==='Agent') return '子代理';
+  return n;
+}
+function modelName(id){
+  if (!id) return '未知模型';
+  const parts = String(id).toLowerCase().split(/[-\[\]]/).filter(Boolean);
+  const fam = parts.find(x => ['opus','sonnet','haiku','fable','mythos'].includes(x));
+  if (!fam) return id;
+  const ver = parts.filter(x => /^\d{1,2}$/.test(x)).slice(0,2).join('.');
+  return fam[0].toUpperCase()+fam.slice(1) + (ver?' '+ver:'');
+}
+const costOf = p => p.in + p.cw*1.25 + p.cr*0.1 + p.out*5;
+const pad = n => String(n).padStart(2,'0');
+const hm = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const dateStr = ts => { if(!ts) return '—'; const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${hm(ts)}`; };
+const dayKey = ts => { const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); };
+const durStr = ms => { const m = Math.round(ms/60000); return m < 1 ? '不到 1 分鐘' : m < 60 ? `${m} 分鐘` : `${Math.floor(m/60)} 小時 ${m%60} 分`; };
+const median = a => { if (!a.length) return 0; const b = [...a].sort((x,y)=>x-y); return b[Math.floor(b.length/2)]; };
+
+const PARTS = [
+  {k:'cr', label:'讀取既有脈絡（快取讀取）', c:'--s1', grp:'過程'},
+  {k:'cw', label:'寫入快取', c:'--s2', grp:'過程'},
+  {k:'inp', label:'新輸入', c:'--s3', grp:'過程'},
+  {k:'pout', label:'思考與工具呼叫輸出', c:'--s4', grp:'過程'},
+  {k:'sub', label:'子代理', c:'--muted', grp:'過程'},
+  {k:'rout', label:'最後回覆', c:'--s5', grp:'結果'},
+];
+
+/* ---------- normalize ---------- */
+function hydrate(s){
+  const st = s.steps;
+  st.forEach((p,i)=>{
+    p.i = i; p.in = p.in||0; p.cw = p.cw||0; p.cr = p.cr||0; p.out = p.out||0; p.rOut = Math.min(p.out, p.rOut||0);
+    p.r = p.r||0; p.ctx = p.in + p.cw + p.cr; p.total = p.ctx + p.out; p.cost = costOf(p); p.tools = p.tools||[];
+    for (const t of p.tools){ t.res = t.res||0; t.resend = t.resend||0; t.carried = t.res*t.resend; t.step = i; }
+  });
+  s.in = st.reduce((a,p)=>a+p.in,0); s.cw = st.reduce((a,p)=>a+p.cw,0); s.cr = st.reduce((a,p)=>a+p.cr,0); s.out = st.reduce((a,p)=>a+p.out,0);
+  s.total = s.in+s.cw+s.cr+s.out;
+  s.startTs = st[0]?.ts||0; s.endTs = st[st.length-1]?.ts||0;
+  s.project = s.project || base(s.cwd) || String(s.key).slice(0,8);
+  s.source = s.source || 'Claude Code';
+  const raw = (s.rounds && s.rounds.length) ? s.rounds : [{ts:s.startTs, prompt:'（對話）', finalText:'', first:0, last:st.length-1}];
+  s.rounds = raw.filter(r => r.first>=0 && r.last>=r.first && r.last < st.length).map((r,ri)=>{
+    const ss = st.slice(r.first, r.last+1);
+    const R = { ts:r.ts, prompt:r.prompt||'', finalText:r.finalText||'', first:r.first, last:r.last, ri, sess:s, steps:ss, sub:0, subCost:0, subN:0 };
+    R.inp = ss.reduce((a,p)=>a+p.in,0); R.cw = ss.reduce((a,p)=>a+p.cw,0); R.cr = ss.reduce((a,p)=>a+p.cr,0);
+    R.rout = ss.reduce((a,p)=>a+p.rOut,0); R.pout = ss.reduce((a,p)=>a+p.out,0) - R.rout;
+    R.endTs = ss[ss.length-1].ts; R.startTs = Math.min(r.ts||ss[0].ts, ss[0].ts);
+    R.ctxEnd = ss[ss.length-1].ctx;
+    for (const p of ss) p.round = R;
+    return R;
+  });
+  return s;
+}
+function finishRound(R){
+  R.process = R.cr + R.cw + R.inp + R.pout + R.sub;
+  R.result = R.rout;
+  R.total = R.process + R.result;
+  R.cost = R.inp + R.cw*1.25 + R.cr*0.1 + (R.pout + R.rout)*5 + R.subCost;
+}
+/* 子代理的用量歸到啟動它的那一回合 */
+function linkSubagents(all){
+  const byKey = new Map(all.map(s=>[s.key,s]));
+  for (const s of all) for (const R of s.rounds){ R.sub = 0; R.subCost = 0; R.subN = 0; }
+  for (const s of all){
+    if (!s.sidechain) continue;
+    const parent = byKey.get(String(s.key).split(':sub:')[0]);
+    if (!parent || parent.sidechain || !parent.rounds.length) continue;
+    let R = parent.rounds[0];
+    for (const r of parent.rounds) if (r.startTs <= s.startTs + 1000) R = r;
+    R.sub += s.total; R.subCost += s.steps.reduce((a,p)=>a+p.cost,0); R.subN++;
+  }
+  for (const s of all) for (const R of s.rounds) finishRound(R);
+}
+
+/* ---------- web mode: parse JSONL ---------- */
+function promptText(l){
+  if (l.isMeta || l.isCompactSummary) return null;
+  const c = l.message && l.message.content;
+  let parts = [], imgs = 0;
+  if (typeof c === 'string') parts = [c];
+  else if (Array.isArray(c)){
+    if (c.some(b=>b && b.type==='tool_result')) return null;
+    for (const b of c){ if (!b) continue; if (b.type==='text') parts.push(b.text||''); else if (b.type==='image') imgs++; }
+  } else return null;
+  const kept = [];
+  for (let t of parts){
+    t = String(t).trim(); if (!t) continue;
+    const m = t.match(/<command-name>([\s\S]*?)<\/command-name>/);
+    if (m){ const a = t.match(/<command-args>([\s\S]*?)<\/command-args>/); kept.push(m[1] + (a && a[1].trim() ? ' '+a[1].trim() : '')); continue; }
+    if (/^(<ide_|<system-reminder>|<local-command|<command-message>|<command-stdout>|\[Request interrupted|Caveat:|<bash-std)/.test(t)) continue;
+    kept.push(t);
+  }
+  if (!kept.length && !imgs) return null;
+  let text = kept.join(' ').replace(/\s+/g,' ');
+  if (imgs) text = `［${imgs} 張圖片］` + (text ? ' '+text : '');
+  return text.slice(0,300);
+}
+function resultText(c){
+  if (c == null) return {t:'',img:0};
+  if (typeof c === 'string') return {t:c,img:0};
+  if (Array.isArray(c)) { let t='',img=0; for (const b of c){ if(!b) continue; if (b.type==='text') t += b.text||''; else if (b.type==='image') img++; } return {t,img}; }
+  return {t:JSON.stringify(c),img:0};
+}
+function target(inp){
+  inp = inp||{};
+  for (const k of ['file_path','notebook_path','command','pattern','url','query','description','prompt']) if (typeof inp[k]==='string') return inp[k].replace(/\s+/g,' ').slice(0,110);
+  try { return JSON.stringify(inp).slice(0,110); } catch(e){ return ''; }
+}
+function sourceOf(ep){
+  if (!ep) return 'Claude Code';
+  if (/vscode/i.test(ep)) return 'Claude Code · VS Code';
+  if (/jetbrains|intellij/i.test(ep)) return 'Claude Code · JetBrains';
+  if (/desktop/i.test(ep)) return 'Claude 桌面版';
+  if (/sdk/i.test(ep)) return 'Agent SDK';
+  if (ep==='cli') return 'Claude Code · 終端機';
+  return 'Claude Code · '+ep;
+}
+function parseAll(texts){
+  const groups = new Map();
+  for (const text of texts) for (const ln of text.split('\n')){
+    if (!ln.trim()) continue;
+    let o; try { o = JSON.parse(ln); } catch(e){ continue; }
+    if (!o || (o.type!=='assistant' && o.type!=='user')) continue;
+    const key = (o.sessionId||'unknown') + (o.isSidechain ? ':sub:'+(o.agentId||'') : '');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  }
+  const seen = new Set(), out = [];
+  const ordered = [...groups].map(([k,l])=>{ l.sort((a,b)=>String(a.timestamp||'').localeCompare(String(b.timestamp||''))); return [k,l]; })
+    .sort((a,b)=>String(a[1][0]?.timestamp||'').localeCompare(String(b[1][0]?.timestamp||'')));
+  for (const [key, lines] of ordered){ const s = buildSession(key, lines, seen); if (s) out.push(s); }
+  return out;
+}
+function buildSession(key, lines, seen){
+  const calls = new Map(), order = [], results = new Map(), uses = new Set(), rounds = [];
+  let cwd = '', side = false, ep = '';
+  for (const l of lines){
+    if (l.cwd) cwd = l.cwd; if (l.isSidechain) side = true; if (l.entrypoint && !ep) ep = l.entrypoint;
+    const m = l.message; if (!m) continue;
+    if (l.type==='assistant' && m.usage){
+      if (m.model === '<synthetic>') continue;
+      const id = m.id || l.uuid;
+      if (!calls.has(id) && seen.has(id)) continue;
+      let c = calls.get(id);
+      if (!c){
+        if (!rounds.length) rounds.push({ts: Date.parse(l.timestamp)||0, prompt:'（對話開始）'});
+        c = { ts: Date.parse(l.timestamp)||0, model: m.model||'', tools: [], out:0, textTok:0, hasTool:false, text:'', r: rounds.length-1 };
+        calls.set(id,c); order.push(c); seen.add(id);
+      }
+      const u = m.usage;
+      c.in = u.input_tokens||0; c.cw = u.cache_creation_input_tokens||0; c.cr = u.cache_read_input_tokens||0;
+      c.out = Math.max(c.out, u.output_tokens||0);
+      if (Array.isArray(m.content)) for (const b of m.content){
+        if (!b) continue;
+        if (b.type==='text'){ c.textTok += estTok(b.text||''); if (!c.text) c.text = String(b.text||'').slice(0,240); }
+        if (b.type==='tool_use' && !uses.has(b.id)){
+          c.hasTool = true; uses.add(b.id); const inp = b.input||{};
+          c.tools.push({id:b.id, name:b.name, target:target(inp), filePath:inp.file_path||null, hasLimit: inp.limit!=null||inp.offset!=null, writeTok: b.name==='Write'?estTok(String(inp.content||'')):0});
+        }
+      }
+    } else if (l.type==='user'){
+      const pt = promptText(l);
+      if (pt != null) rounds.push({ts: Date.parse(l.timestamp)||0, prompt: pt});
+      else if (Array.isArray(m.content)) for (const b of m.content) if (b && b.type==='tool_result'){ const r = resultText(b.content); results.set(b.tool_use_id, estTok(r.t) + r.img*1600); }
+    }
+  }
+  const steps = order;
+  if (!steps.length) return null;
+  steps.forEach(p => { p.ctx = (p.in||0)+(p.cw||0)+(p.cr||0); p.rOut = p.hasTool ? 0 : Math.min(p.out, p.textTok); });
+  const segEnd = new Array(steps.length); let end = steps.length-1;
+  for (let i = steps.length-1; i>=0; i--){
+    segEnd[i] = end;
+    if (i>0 && steps[i].ctx < steps[i-1].ctx*0.55 && steps[i-1].ctx > 20000){ steps[i].compacted = true; end = i-1; }
+  }
+  steps.forEach((p,i)=>{ for (const t of p.tools){ t.res = results.get(t.id)||0; t.resend = Math.max(0, segEnd[i]-i); } });
+  rounds.forEach(r=>{ r.first = -1; r.last = -1; r.finalText = ''; });
+  steps.forEach((p,i)=>{ const r = rounds[p.r]; if (r.first<0) r.first = i; r.last = i; if (!p.hasTool && p.text) r.finalText = p.text; });
+  const kept = rounds.filter(r=>r.first>=0);
+  const remap = new Map(rounds.map((r,i)=>[i, kept.indexOf(r)]));
+  steps.forEach(p => p.r = remap.get(p.r));
+  return hydrate({ key, cwd, sidechain: side, source: sourceOf(ep), steps, rounds: kept });
+}
+
+/* ---------- anomaly detection ---------- */
+function baselines(){
+  const all = [], byProj = {};
+  for (const s of S.all) if (!s.sidechain) for (const R of s.rounds){ all.push(R.cost); (byProj[s.project] ||= []).push(R.cost); }
+  const g = median(all), out = {};
+  for (const p in byProj) out[p] = byProj[p].length >= 8 ? {med: median(byProj[p]), n: byProj[p].length, scope:'這個專案'} : {med: g, n: all.length, scope:'所有專案'};
+  return out;
+}
+const FIX = {
+  big: '先用 Grep 找到行號，再用 Read 的 offset／limit 只讀需要的段落；指令輸出加上 | tail -n 40；MCP 查詢指定欄位或筆數。',
+  cache: '快取約 5 分鐘過期。離開很久再回來，先 /compact 或開新對話再繼續。',
+  out: '請它只輸出需要的部分，或分段完成。',
+  write: '修改既有檔案時請它用 Edit 只改需要的區塊。',
+  ctx: '一個功能做完就 /clear；同一個任務還沒完成就先 /compact。',
+  calls: '把需求拆小一點，或先請它列出計畫，確認後再動手。',
+  sub: '小範圍搜尋直接在主對話完成；用子代理時給明確範圍與回報格式。',
+};
+function stepFlags(p, prev){
+  const f = [];
+  for (const t of p.tools) if (t.res > 6000) f.push({sev: t.res>12000?'crit':'warn', key:'big', txt:`${toolLabel(t.name)} 帶回 ${fmt(t.res)}，之後重送 ${t.resend} 次`});
+  if (prev && !p.compacted && p.ctx>20000 && p.cr < p.ctx*0.4){
+    const gap = Math.round((p.ts - prev.ts)/60000);
+    f.push({sev: p.ctx>60000?'crit':'warn', key:'cache', txt:`快取失效，${fmt(p.cw)} 重新寫入${gap>5?`（閒置 ${gap} 分）`:''}`});
+  }
+  if (p.out > 4000) f.push({sev:'warn', key:'out', txt:`輸出 ${fmt(p.out)}`});
+  for (const t of p.tools) if (t.name==='Write' && t.writeTok>3000) f.push({sev:'warn', key:'write', txt:`整份寫入 ${fmt(t.writeTok)}`});
+  return f;
+}
+function analyzeRounds(){
+  const B = baselines();
+  for (const s of S.all){
+    if (s.sidechain) continue;
+    s.rounds.forEach(R=>{
+      const b = B[s.project] || {med:0, n:0, scope:'所有專案'};
+      R.base = b; R.ratio = b.med ? R.cost / b.med : 0;
+      const reasons = [];
+      R.steps.forEach(p=>{ p.flags = stepFlags(p, p.i>0 ? s.steps[p.i-1] : null); reasons.push(...p.flags); });
+      if (R.ctxEnd > 120000) reasons.push({sev:'warn', key:'ctx', txt:`脈絡到 ${fmt(R.ctxEnd)}`});
+      if (R.steps.length > 40) reasons.push({sev:'warn', key:'calls', txt:`呼叫模型 ${R.steps.length} 次`});
+      if (R.sub > R.total*0.4 && R.sub > 30000) reasons.push({sev:'warn', key:'sub', txt:`${R.subN} 個子代理用了 ${fmt(R.sub)}`});
+      let sev = '';
+      if (R.cost > 15000 && R.ratio >= 3) sev = (R.ratio >= 6 || reasons.some(x=>x.sev==='crit')) ? 'crit' : 'warn';
+      else if (R.cost > 15000 && reasons.some(x=>x.sev==='crit')) sev = 'warn';
+      R.sev = sev;
+      const grouped = {};
+      for (const x of reasons){ const g = grouped[x.key] ||= {key:x.key, sev:x.sev, items:[]}; g.items.push(x.txt); if (x.sev==='crit') g.sev='crit'; }
+      R.reasons = Object.values(grouped);
+    });
+  }
+}
+
+/* ---------- filtering ---------- */
+function rangeStart(){
+  const r = +$('#range').value; if (!r) return 0;
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-(r-1)); return d.getTime();
+}
+function inScope(s){ const proj = $('#projFilter').value; return (!proj || s.project===proj) && s.endTs >= rangeStart(); }
+function fillProjFilter(){
+  const cur = $('#projFilter').value;
+  const tot = {};
+  for (const s of S.all) tot[s.project] = (tot[s.project]||0) + s.total;
+  const names = Object.keys(tot).sort((a,b)=>tot[b]-tot[a]);
+  $('#projFilter').innerHTML = `<option value="">全部專案</option>` + names.map(n=>`<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('');
+}
+
+/* ---------- tooltip ---------- */
+const tip = $('#tip');
+function showTip(html, x, y){
+  tip.innerHTML = html; tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  let lx = x + 14, ly = y + 14;
+  if (lx + r.width > innerWidth - 8) lx = x - r.width - 14;
+  if (ly + r.height > innerHeight - 8) ly = y - r.height - 14;
+  tip.style.left = Math.max(8,lx)+'px'; tip.style.top = Math.max(8,ly)+'px';
+}
+const hideTip = () => { tip.hidden = true; };
+function hoverRows(container, sel, html){
+  container.querySelectorAll(sel).forEach((el,i)=>{ el.onmousemove = e => showTip(html(i,el), e.clientX, e.clientY); el.onmouseleave = hideTip; });
+}
+
+/* ---------- render ---------- */
+function render(){
+  renderStatus(); renderLimits();
+  const sess = S.all.filter(inScope);
+  S.main = sess.filter(s=>!s.sidechain).sort((a,b)=>b.endTs-a.endTs);
+  S.rounds = [...S.main].sort((a,b)=>a.startTs-b.startTs).flatMap(s=>s.rounds);
+  renderKpis(sess); renderOverview(); renderTimeline(); renderDaily(); renderBreakdown(sess); renderFindings(sess); renderTools(sess);
+}
+
+function renderStatus(){
+  if (APP){
+    $('#status').innerHTML = S.loaded
+      ? `<span class="chip real"><i class="dot on pulse"></i>自動監控中 · ${S.updated?hm(S.updated):'—'}</span>`
+      : '<span class="chip"><i class="dot idle pulse"></i>掃描中…</span>';
+  } else {
+    $('#status').innerHTML = S.sample ? '<span class="chip sample">⚠ 目前顯示範例資料</span>' : `<span class="chip real">✓ 已載入 ${S.fileCount} 個檔案</span>`;
+  }
+}
+
+function renderLimits(){
+  const el = $('#limits');
+  $('#planBadge').innerHTML = S.plan ? `<span class="plan">${esc(S.plan)}</span>` : '';
+  if (!APP){
+    el.innerHTML = `<div class="notice">方案剩餘額度要讀取你電腦上的 Claude Code 登入才查得到，網頁版無法取得。請在 TokenMeter 系統列查看，或在 Claude Code 裡輸入 <code>/usage</code>。</div>`;
+    return;
+  }
+  const col = u => u>=90 ? 'var(--crit)' : u>=70 ? 'var(--warn)' : 'var(--good)';
+  const rel = ts => {
+    if (!ts) return '';
+    const m = Math.round((ts - Date.now())/60000);
+    const d = new Date(ts);
+    if (m <= 0) return '即將重置';
+    if (m < 60) return `${m} 分鐘後重置`;
+    if (m < 1440) return `${Math.floor(m/60)} 小時 ${m%60} 分後重置（${hm(ts)}）`;
+    return `${d.getMonth()+1}/${d.getDate()}（${'日一二三四五六'[d.getDay()]}）${hm(ts)} 重置`;
+  };
+  let html = S.limits.map(l=>{
+    const u = Math.max(0, Math.min(100, l.used));
+    return `<div class="lim"><div class="h"><b>${esc(l.label)}</b><span class="rem" style="${u>=70?`color:${u>=90?'var(--crit-ink)':'var(--warn-ink)'}`:''}">剩 ${Math.round(100-u)}%</span></div>
+      <div class="meter" role="meter" aria-valuenow="${Math.round(u)}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(l.label)} 已用"><i style="width:${Math.max(1,u)}%;background:${col(u)}"></i></div>
+      <div class="s">已用 ${Math.round(u)}% · ${rel(l.resetsAt)}</div></div>`;
+  }).join('');
+  if (S.limitError) html += `<div class="notice">${esc(S.limitError)}</div>`;
+  else if (!S.limits.length) html += `<div class="notice">查詢中…</div>`;
+  el.innerHTML = html;
+  $('#limitNote').textContent = '所有 Claude 工具共用，包括網頁與手機聊天' + (S.limitUpdated ? ` · 更新於 ${hm(S.limitUpdated)}` : '');
+}
+
+function renderKpis(sess){
+  const proj = $('#projFilter').value;
+  $('#projTitle').textContent = proj ? `專案診斷 · ${proj}` : '專案診斷 · 全部專案';
+  const R = S.rounds;
+  const tot = sess.reduce((a,s)=>a+s.total,0);
+  const flagged = R.filter(r=>r.sev);
+  const crit = R.filter(r=>r.sev==='crit').length;
+  const proc = R.reduce((a,r)=>a+r.process,0), res = R.reduce((a,r)=>a+r.result,0);
+  $('#projSub').textContent = `${S.main.length} 段對話 · 子代理已併入啟動它的回合`;
+  $('#kpis').innerHTML = [
+    ['回合數', String(R.length), `${S.main.length} 段對話`],
+    ['總 Token', fmt(tot), `過程 ${fmt(proc)} · 結果 ${fmt(res)}`],
+    ['每回合中位數', fmt(median(R.map(r=>r.total))), R.length?`最多一回合 ${fmt(Math.max(...R.map(r=>r.total)))}`:''],
+    ['偏高／異常回合', `${flagged.length}`, flagged.length?`其中 ${crit} 個異常`:'沒有偏高的回合'],
+  ].map(([l,v,s])=>`<div class="kpi"><div class="eyebrow">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('#stackLegend').innerHTML = PARTS.map(p=>`<span><i class="sw" style="background:var(${p.c})"></i>${p.grp}：${p.label}</span>`).join('');
+}
+
+function nodeR(total, mx){ return 4 + Math.sqrt(total / Math.max(1,mx)) * 9; }
+const findRound = (key, ri) => { const s = S.all.find(x=>x.key===key); return s ? s.rounds[ri] : null; };
+
+function renderOverview(){
+  const box = $('#ov');
+  const sess = [...S.main].sort((a,b)=>a.startTs-b.startTs);
+  const n = sess.reduce((a,s)=>a+s.rounds.length,0);
+  if (!n){ box.innerHTML = '<div class="none">這個範圍內沒有回合</div>'; return; }
+  const mx = Math.max(...S.rounds.map(r=>r.total));
+  const padL = 20, gapUnits = (sess.length-1)*0.8;
+  const W = Math.max(box.clientWidth || 800, (n + gapUnits) * 18 + padL*2), H = 96, cy = 58;
+  const step = (W - padL*2) / Math.max(1, n - 1 + gapUnits);
+  let x = padL, svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="回合總覽">`;
+  svg += `<line x1="${padL}" x2="${W-padL}" y1="${cy}" y2="${cy}" stroke="var(--line-2)" stroke-width="2"/>`;
+  const pos = []; let lastLabel = -1e9;
+  sess.forEach((s,si)=>{
+    if (si>0){ x += step*0.4; svg += `<line x1="${x}" x2="${x}" y1="22" y2="${H-6}" stroke="var(--line)" stroke-dasharray="3 3"/>`; x += step*0.4; }
+    if (x - lastLabel > 90){ svg += `<text x="${x}" y="13" font-size="10.5" fill="var(--muted)" font-family="var(--mono)">${esc(dateStr(s.startTs))}</text>`; lastLabel = x; }
+    s.rounds.forEach(r=>{ pos.push({r, x}); x += step; });
+  });
+  for (const p of pos){
+    const r = p.r, rad = nodeR(r.total, mx);
+    const fill = r.sev==='crit' ? 'var(--crit)' : r.sev==='warn' ? 'var(--warn)' : 'var(--s1)';
+    svg += `<g class="ovn" data-k="${esc(r.sess.key)}" data-ri="${r.ri}" style="cursor:pointer">
+      <circle cx="${p.x}" cy="${cy}" r="${Math.max(rad+4, 9)}" fill="transparent"/>
+      ${S.sel===r?`<circle cx="${p.x}" cy="${cy}" r="${rad+4}" fill="none" stroke="var(--ink)" stroke-width="2"/>`:''}
+      <circle cx="${p.x}" cy="${cy}" r="${rad}" fill="${fill}" stroke="var(--surface)" stroke-width="2"/></g>`;
+  }
+  svg += '</svg>';
+  box.innerHTML = svg;
+  box.querySelectorAll('.ovn').forEach(g=>{
+    const r = findRound(g.dataset.k, +g.dataset.ri);
+    g.onmousemove = e => showTip(roundTip(r), e.clientX, e.clientY);
+    g.onmouseleave = hideTip;
+    g.onclick = () => { hideTip(); openRound(r, true); };
+  });
+  const p = S.sel && pos.find(p=>p.r===S.sel);
+  box.scrollLeft = p ? Math.max(0, p.x - box.clientWidth/2) : box.scrollWidth;
+}
+function roundTip(r){
+  return `<div class="t">${esc(r.prompt.slice(0,80))}${r.prompt.length>80?'…':''}</div>
+    <div class="muted" style="margin-bottom:4px">${dateStr(r.startTs)} · ${esc(r.sess.project)}</div>
+    <div class="r"><span>總 Token</span><span>${fmt(r.total)}</span></div>
+    <div class="r"><span>過程</span><span>${fmt(r.process)}</span></div>
+    <div class="r"><span>結果</span><span>${fmt(r.result)}</span></div>
+    ${r.ratio?`<div class="r"><span>與平常相比</span><span>${r.ratio.toFixed(1)} 倍</span></div>`:''}`;
+}
+
+const sevChip = sev => sev==='crit' ? '<span class="sev crit">● 異常</span>' : sev==='warn' ? '<span class="sev warn">▲ 偏高</span>' : '';
+
+function renderTimeline(){
+  const el = $('#tl');
+  const only = $('#onlyFlag').checked;
+  if (!S.main.length){ el.innerHTML = '<div class="none">這個範圍內沒有對話</div>'; $('#moreBtn').hidden = true; return; }
+  const mx = Math.max(1, ...S.rounds.map(r=>r.total));
+  let budget = S.shown, html = '', hidden = 0;
+  for (const s of S.main){
+    const rs = s.rounds.filter(r => !only || r.sev);
+    if (!rs.length) continue;
+    if (budget <= 0){ hidden += rs.length; continue; }
+    const take = rs.slice(Math.max(0, rs.length - budget));
+    hidden += rs.length - take.length; budget -= take.length;
+    const stot = s.rounds.reduce((a,r)=>a+r.total,0);
+    html += `<div class="tl-gh"><b>${esc(s.project)}</b><span>${dateStr(s.startTs)} – ${hm(s.endTs)}</span><span>${esc(s.source)}</span><span>${s.rounds.length} 回合 · ${fmt(stot)}</span>${take.length<rs.length?`<span>只顯示最後 ${take.length} 回合</span>`:''}</div><div class="tl-grp">`;
+    html += take.map(r => roundHTML(r, mx)).join('') + '</div>';
+  }
+  el.innerHTML = html || '<div class="none">這個範圍內沒有偏高或異常的回合</div>';
+  $('#moreBtn').hidden = hidden === 0;
+  $('#moreBtn').textContent = `顯示更早的回合（還有 ${hidden} 個）`;
+  el.querySelectorAll('.round').forEach(div=>{
+    const r = findRound(div.dataset.k, +div.dataset.ri);
+    const card = div.querySelector('.rcard');
+    card.addEventListener('click', e => {
+      if (e.target.closest('.rdet')) return;
+      if (S.open === r){ S.open = null; } else { S.open = r; }
+      S.sel = S.open;
+      renderTimeline(); renderOverview();
+    });
+    card.addEventListener('keydown', e => { if (e.key==='Enter' && e.target===card) card.click(); });
+  });
+}
+
+function stackHTML(r){
+  const tot = Math.max(1, r.total);
+  return `<div class="stack" aria-hidden="true">${PARTS.filter(p=>r[p.k]>0).map(p=>`<i style="flex:${r[p.k]/tot};background:var(${p.c})"></i>`).join('')}</div>`;
+}
+
+function roundHTML(r, mx){
+  const open = S.open === r;
+  const rad = nodeR(r.total, mx);
+  const tools = {};
+  for (const p of r.steps) for (const t of p.tools){ const k = toolLabel(t.name); tools[k] = (tools[k]||0)+1; }
+  const toolTxt = Object.entries(tools).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,n])=>`${k}×${n}`).join('、');
+  const reasons = r.sev ? r.reasons.slice(0,3).map(g=>`<span class="sev ${g.sev}">${esc(g.items[0])}${g.items.length>1?` 等 ${g.items.length} 處`:''}</span>`).join('') : '';
+  return `<div class="round${open?' open':''}${S.sel===r?' sel':''}" data-k="${esc(r.sess.key)}" data-ri="${r.ri}" id="r-${esc(r.sess.key)}-${r.ri}">
+    <div class="rtime">${hm(r.startTs)}</div>
+    <div class="rail"><i class="node ${r.sev}" style="width:${(rad*2).toFixed(1)}px;height:${(rad*2).toFixed(1)}px"></i></div>
+    <div class="rcard" tabindex="0" role="button" aria-expanded="${open}">
+      <div class="rtop">
+        <div style="min-width:0">
+          <div class="prompt">${esc(r.prompt)}</div>
+          <div class="rmeta"><span>${r.steps.length} 次呼叫</span><span>${durStr(r.endTs - r.startTs)}</span>${toolTxt?`<span>${esc(toolTxt)}</span>`:''}${r.subN?`<span>子代理 ×${r.subN}</span>`:''}</div>
+        </div>
+        <div class="rtot"><b>${fmt(r.total)}</b><small>過程 ${fmt(r.process)} · 結果 ${fmt(r.result)}</small></div>
+      </div>
+      ${stackHTML(r)}
+      ${r.sev?`<div class="flags">${sevChip(r.sev)}${r.ratio>=1.5?`<span class="sev ${r.sev}">平常的 ${r.ratio.toFixed(1)} 倍</span>`:''}${reasons}</div>`:''}
+      ${open ? detailHTML(r) : ''}
+    </div>
+  </div>`;
+}
+
+function detailHTML(r){
+  const grpTot = g => PARTS.filter(p=>p.grp===g).reduce((a,p)=>a+r[p.k],0);
+  const row = p => `<div class="row"><i class="sw" style="background:var(${p.c})"></i><span>${p.label}</span><span class="v">${fmt(r[p.k])}</span></div>`;
+  const brk = `<div class="brk">
+      <div class="grp"><span>過程</span><span>${fmt(grpTot('過程'))}</span></div>
+      ${PARTS.filter(p=>p.grp==='過程' && (p.k!=='sub' || r.sub)).map(row).join('')}
+      <div class="grp"><span>結果</span><span>${fmt(grpTot('結果'))}</span></div>
+      ${PARTS.filter(p=>p.grp==='結果').map(row).join('')}
+      <div class="grp"><span>合計</span><span>${fmt(r.total)} · 約當輸入 ${fmt(r.cost)}</span></div>
+    </div>`;
+  const b = r.base || {};
+  let why = '';
+  if (r.sev) why += `<div class="reason">${sevChip(r.sev)}<div><p>約當成本是${b.scope}回合中位數的 ${r.ratio.toFixed(1)} 倍（中位數 ${fmt(b.med)}，共 ${b.n} 回合）。${r.ratio<3?'成本本身不算高，但下面的動作值得注意。':''}</p></div></div>`;
+  for (const g of r.reasons) why += `<div class="reason"><span class="sev ${g.sev}">${g.sev==='crit'?'●':'▲'}</span><div><p>${g.items.slice(0,4).map(esc).join('；')}${g.items.length>4?`；等 ${g.items.length} 處`:''}</p><div class="fix">改善：${esc(FIX[g.key]||'')}</div></div></div>`;
+  if (!why) why = `<p class="muted" style="margin:0">這一回合沒有異常${b.med?`，約是${b.scope}回合中位數的 ${r.ratio.toFixed(1)} 倍`:''}。</p>`;
+  const rows = r.steps.map((p,j)=>{
+    const sev = (p.flags||[]).some(x=>x.sev==='crit') ? 'crit' : (p.flags||[]).length ? 'warn' : '';
+    const act = p.tools.length ? p.tools.map(t=>`<span class="tl1">${esc(toolLabel(t.name))} <span>${esc(t.target)}</span></span>`).join('') : (p.rOut ? '<span class="muted">回覆結果</span>' : '<span class="muted">思考</span>');
+    const brought = p.tools.reduce((a,t)=>a+t.res,0);
+    return `<tr class="${sev?'flag-'+sev:''}"><td class="n">${j+1}</td><td class="mono">${hm(p.ts)}</td><td>${esc(modelName(p.model))}</td><td class="act">${act}</td>
+      <td class="n">${fmt(p.ctx)}</td><td class="n">${brought?fmt(brought):'—'}</td><td class="n">${fmt(p.out - p.rOut)}</td><td class="n">${p.rOut?fmt(p.rOut):'—'}</td><td class="n"><b>${fmt(p.total)}</b></td>
+      <td>${(p.flags||[]).map(x=>`<span class="sev ${x.sev}">${esc(x.txt)}</span>`).join(' ')}</td></tr>`;
+  }).join('');
+  return `<div class="rdet">
+    <div class="split">
+      <div><h3>這一回合的 Token 組成</h3>${brk}</div>
+      <div><h3>判定</h3><div class="reasons">${why}</div></div>
+    </div>
+    <div><h3>過程：每一次模型呼叫</h3>
+      <div class="tscroll"><table>
+        <thead><tr><th class="n">#</th><th>時間</th><th>模型</th><th>做了什麼</th><th class="n">讀入脈絡</th><th class="n">工具帶回</th><th class="n">過程輸出</th><th class="n">結果輸出</th><th class="n">本次合計</th><th>標記</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>
+    ${r.finalText?`<div><h3>結果：最後回覆（開頭）</h3><div class="final">${esc(r.finalText)}${r.finalText.length>=240?'…':''}</div></div>`:''}
+  </div>`;
+}
+
+function openRound(r, scroll){
+  if (!r) return;
+  const proj = $('#projFilter').value;
+  if (proj && proj !== r.sess.project){ $('#projFilter').value = r.sess.project; render(); }
+  S.open = r; S.sel = r;
+  if ($('#onlyFlag').checked && !r.sev) $('#onlyFlag').checked = false;
+  let count = 0;
+  for (const s of S.main){ const i = s.rounds.indexOf(r); if (i >= 0){ count += s.rounds.length - i; break; } count += s.rounds.length; }
+  if (count > S.shown) S.shown = count + 10;
+  renderTimeline(); renderOverview();
+  if (scroll){
+    const el = document.getElementById(`r-${r.sess.key}-${r.ri}`);
+    if (el) el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth', block:'start'});
+  }
+}
+
+function renderDaily(){
+  const r = +$('#range').value;
+  const n = r===0 ? 30 : Math.max(r, 7);
+  const today = dayKey(Date.now());
+  const days = []; for (let k=n-1;k>=0;k--){ const d = new Date(today); d.setDate(d.getDate()-k); days.push(d.getTime()); }
+  const proj = $('#projFilter').value, map = {};
+  for (const s of S.all) if (!proj || s.project===proj) for (const p of s.steps){ const k = dayKey(p.ts); map[k] = (map[k]||0) + p.total; }
+  const vals = days.map(d=>map[d]||0), mx = Math.max(1,...vals);
+  $('#daily').innerHTML = vals.map((v,i)=>`<div class="col${days[i]===today?' today':''}"><i style="height:${Math.max(1.5, v/mx*100)}%"></i></div>`).join('');
+  const every = n>14 ? 5 : 1;
+  $('#dailyLbl').innerHTML = days.map((d,i)=>{ const dt = new Date(d); return `<span>${(i%every===0||i===n-1)?`${dt.getMonth()+1}/${dt.getDate()}`:''}</span>`; }).join('');
+  hoverRows($('#daily'), '.col', i=>{ const dt = new Date(days[i]); return `<div class="t">${dt.getMonth()+1}/${dt.getDate()}${days[i]===today?'（今天）':''}</div><div class="r"><span>總 Token</span><span>${vals[i].toLocaleString()}</span></div>`; });
+  const sum = vals.reduce((a,b)=>a+b,0);
+  $('#dailyNote').textContent = `近 ${n} 天合計 ${fmt(sum)}，每日平均 ${fmt(sum/n)}`;
+}
+
+function barList(el, rows, colorVar, tipFn){
+  const mx = rows[0]?.v || 1;
+  el.innerHTML = rows.length ? rows.map(r=>`<div class="bar"><span class="lbl" title="${esc(r.k)}">${esc(r.k)}</span><span class="trk"><span class="fill" style="width:${Math.max(0.6,r.v/mx*100)}%;background:var(${colorVar})"></span></span><span class="val">${fmt(r.v)}</span></div>`).join('') : '<div class="none">沒有資料</div>';
+  if (tipFn) hoverRows(el, '.bar', i => tipFn(rows[i]));
+}
+function renderBreakdown(sess){
+  const byModel = {}, byProj = {};
+  for (const s of sess){
+    for (const p of s.steps){ const k = modelName(p.model); (byModel[k] ||= {k, v:0}).v += p.total; }
+    (byProj[s.project] ||= {k:s.project, v:0}).v += s.total;
+  }
+  const t = r => `<div class="t">${esc(r.k)}</div><div class="r"><span>總 Token</span><span>${r.v.toLocaleString()}</span></div>`;
+  barList($('#modelBars'), Object.values(byModel).sort((a,b)=>b.v-a.v), '--s2', t);
+  barList($('#projBars'), Object.values(byProj).sort((a,b)=>b.v-a.v).slice(0,6), '--s1', t);
+}
+function renderTools(sess){
+  const agg = {};
+  for (const s of sess) for (const st of s.steps) for (const t of st.tools){
+    const k = toolLabel(t.name); const a = agg[k] ||= {k, calls:0, res:0, v:0};
+    a.calls++; a.res += t.res; a.v += t.carried;
+  }
+  barList($('#toolBars'), Object.values(agg).sort((a,b)=>b.v-a.v).slice(0,9), '--s1', r=>`<div class="t">${esc(r.k)}</div><div class="r"><span>呼叫次數</span><span>${r.calls}</span></div><div class="r"><span>帶回合計</span><span>${fmt(r.res)}</span></div><div class="r"><span>攜帶量</span><span>${fmt(r.v)}</span></div>`);
+}
+
+function renderFindings(sess){
+  const F = [];
+  const main = sess.filter(s=>!s.sidechain);
+  const all = main.flatMap(s => s.steps.flatMap(p => p.tools.map(t => ({t, p, s}))));
+  const exOf = arr => { const out = []; for (const x of [...arr].sort((a,b)=>b.t.carried-a.t.carried)){ if (x.p.round && !out.includes(x.p.round)) out.push(x.p.round); if (out.length>=3) break; } return out; };
+  const add = (title, arr, desc, fix, imp) => { if (arr.length) F.push({title, desc: desc(arr.length), fix, imp: imp ?? arr.reduce((a,x)=>a+x.t.carried,0), ex: exOf(arr)}); };
+
+  add('整份讀取大檔案', all.filter(x=>x.t.name==='Read' && x.t.res>8000 && !x.t.hasLimit), n=>`有 ${n} 次讀檔沒有指定範圍，一次帶回 8k 以上，之後每次呼叫都會重送。`, '先用 Grep 找到行號，再用 Read 的 offset／limit 只讀需要的段落。');
+  const rr = [];
+  for (const s of main){ const m = {}; for (const p of s.steps) for (const t of p.tools) if (t.name==='Read' && t.filePath) (m[t.filePath] ||= []).push({t,p,s}); for (const k in m) if (m[k].length>=3) rr.push(...m[k].slice(1)); }
+  add('同一個檔案反覆讀取', rr, n=>`有 ${n} 次是重複讀取同一個檔案。`, '把檔案結構與慣例寫進 CLAUDE.md；改完後用 Edit 的回傳確認，不必整份重讀。');
+  add('指令輸出太長', all.filter(x=>x.t.name==='Bash' && x.t.res>4000), n=>`有 ${n} 次執行指令輸出超過 4k。`, '請它加上 | tail -n 40、--silent，或把輸出寫進檔案再找錯誤行。');
+  add('搜尋、網頁或 MCP 回傳過大', all.filter(x=>(x.t.name.startsWith('mcp__') || /^(WebFetch|WebSearch|Grep|Glob)$/.test(x.t.name)) && x.t.res>6000), n=>`有 ${n} 次回傳超過 6k。`, 'Grep 改用只列檔名的模式；MCP 查詢指定節點、欄位或筆數上限。');
+  const misses = [];
+  for (const s of main) s.steps.forEach((p,i)=>{ if (i>0 && !p.compacted && p.ctx>20000 && p.cr<p.ctx*0.4) misses.push({t:{carried:p.cw}, p, s}); });
+  add('快取失效', misses, n=>`有 ${n} 次整段脈絡以較高價格重新寫入，多半發生在閒置超過 5 分鐘之後。`, FIX.cache, misses.reduce((a,m)=>a+m.t.carried*1.25,0));
+  const open = main.filter(s=>s.steps[0] && s.steps[0].ctx>25000);
+  if (open.length) F.push({title:'一開場就佔掉大量脈絡', desc:`${open.length} 段對話第一次呼叫就用了平均 ${fmt(open.reduce((a,s)=>a+s.steps[0].ctx,0)/open.length)}：系統提示、MCP 工具說明、CLAUDE.md。`, fix:'在 Claude Code 執行 /context 看是誰佔的，關掉這個專案用不到的 MCP server。', imp: open.reduce((a,s)=>a+s.steps[0].ctx*s.steps.length*0.1,0), ex: open.slice(0,3).map(s=>s.rounds[0]).filter(Boolean)});
+
+  F.sort((a,b)=>b.imp-a.imp);
+  const max = F[0]?.imp || 0;
+  F.forEach((f,i)=>{ f.sev = (i<2 && f.imp > max*0.35) ? 'crit' : (f.imp > max*0.08 ? 'warn' : 'info'); });
+  const sevTxt = {crit:'● 優先處理', warn:'▲ 值得調整', info:'○ 小幅'};
+  const el = $('#findings'), exMap = [];
+  el.innerHTML = F.length ? F.map(f=>`<article class="f ${f.sev}"><div class="stripe"></div><div class="body">
+      <div class="head"><span class="sev ${f.sev}">${sevTxt[f.sev]}</span><h3>${f.title}</h3><span class="impact">影響約 <b class="num">${fmt(f.imp)}</b></span></div>
+      <p>${esc(f.desc)}</p>
+      <div class="fixbox"><b>改善：</b>${esc(f.fix)}</div>
+      ${f.ex.length?`<div class="ex">${f.ex.map(r=>{ exMap.push(r); return `<button type="button" data-x="${exMap.length-1}">${esc(r.sess.project)} ${esc(dateStr(r.startTs))}</button>`; }).join('')}</div>`:''}
+    </div></article>`).join('') : '<div class="none">這個範圍內沒有偵測到明顯的過度使用</div>';
+  el.querySelectorAll('.ex button').forEach(b => b.onclick = () => openRound(exMap[+b.dataset.x], true));
+}
+
+function renderSources(){
+  const el = $('#srcs');
+  el.innerHTML = S.sources.map((s,i)=>{
+    const state = !s.trackable ? 'na' : !s.exists ? 'idle' : (s.latest && Date.now()-s.latest < 30*60000 ? 'on' : 'idle');
+    const stateTxt = !s.trackable ? '沒有本機用量記錄' : !s.exists ? '這台電腦上沒有這個位置' : s.latest ? `最近活動 ${dateStr(s.latest)}` : '還沒有記錄';
+    return `<div class="src${(!s.exists||!s.trackable)?' off':''}">
+      <div class="h"><b>${esc(s.label)}</b><i class="dot ${state}" title="${stateTxt}"></i></div>
+      ${s.path?`<div class="p">${esc(s.path)}</div>`:''}
+      <div class="m">${s.trackable && s.exists ? `${s.files} 個記錄檔 · ${s.sessions} 段對話 · ${fmt(s.tokens)}` : esc(s.note||'')}</div>
+      <div class="m muted">${stateTxt}</div>
+      ${s.exists && s.path ? `<button type="button" data-i="${i}">在 Finder 顯示</button>` : ''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('button[data-i]').forEach(b => b.onclick = () => post({reveal: S.sources[+b.dataset.i].fullPath || S.sources[+b.dataset.i].path}));
+}
+
+/* ---------- load ---------- */
+function setData(sessions){
+  const openKey = S.open ? [S.open.sess.key, S.open.ri] : null;
+  S.all = sessions.filter(s=>s.steps && s.steps.length).map(hydrate);
+  linkSubagents(S.all);
+  analyzeRounds();
+  S.open = openKey ? findRound(openKey[0], openKey[1]) : null; S.sel = S.open;
+  fillProjFilter();
+  render();
+}
+window.tmLoad = function(payload){
+  try {
+    const d = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    S.sources = d.sources||[];
+    S.limits = d.limits||[]; S.limitError = d.limitError||null; S.plan = d.plan||null; S.limitUpdated = d.limitUpdated||null;
+    S.updated = d.generatedAt || Date.now(); S.loaded = true; S.sample = false;
+    $('#refreshBtn').textContent = '立即重新掃描';
+    renderSources();
+    setData(d.sessions||[]);
+  } catch(e){ $('#status').innerHTML = `<span class="chip sample">讀取失敗：${esc(e.message)}</span>`; }
+};
+
+/* ---------- sample data (web only, clearly labeled) ---------- */
+function makeSample(){
+  const lines = [];
+  let rnd = 11; const R = () => (rnd = (rnd*9301+49297)%233280)/233280;
+  const now = Date.now();
+  function session(sid, cwd, ep, startMs, base0, plan){
+    let t = startMs, ctx = base0, prevCtx = 0, uid = 0, pending = 0;
+    plan.forEach((p, i) => {
+      if (p.prompt){
+        t += (p.gap||1.5)*60000;
+        lines.push({type:'user', sessionId:sid, cwd, entrypoint:ep, timestamp:new Date(t).toISOString(), uuid:`${sid}-p${uid++}`, message:{role:'user', content:p.prompt}});
+        ctx += estTok(p.prompt) + 40;
+      }
+      t += (8 + R()*40)*1000;
+      ctx += pending + 120;
+      const cr = i===0 || p.miss ? 0 : Math.min(prevCtx, ctx-200);
+      const cw = ctx - cr - 3;
+      const content = []; pending = 0;
+      const tools = p.tools || [];
+      let out;
+      if (tools.length){ out = p.out || Math.round(120 + R()*380); tools.forEach((tl,k)=>content.push({type:'tool_use', id:`${sid}_${i}_${k}`, name: tl.name, input: tl.input})); }
+      else { const txt = p.reply || '完成了。'; content.push({type:'text', text: txt}); out = p.out || estTok(txt) + Math.round(80+R()*200); }
+      lines.push({type:'assistant', sessionId:sid, cwd, entrypoint:ep, timestamp:new Date(t).toISOString(), uuid:`${sid}-a${uid++}`, message:{id:`msg_${sid}_${i}`, model:p.model||'claude-sonnet-5', content, usage:{input_tokens:3, cache_creation_input_tokens:cw, cache_read_input_tokens:cr, output_tokens:out}}});
+      tools.forEach((tl, k) => {
+        lines.push({type:'user', sessionId:sid, cwd, timestamp:new Date(t+2000).toISOString(), uuid:`${sid}-u${uid++}`, message:{role:'user', content:[{type:'tool_result', tool_use_id:`${sid}_${i}_${k}`, content:'x '.repeat(Math.round(tl.res*1.9))}]}});
+        pending += tl.res;
+      });
+      ctx += out; prevCtx = ctx - out;
+    });
+  }
+  const T = (name, input, res) => ({name, input, res});
+  const E = f => T('Edit', {file_path:f}, 180 + Math.round(R()*300));
+  const G = q => T('Grep', {pattern:q, path:'src'}, 400 + Math.round(R()*900));
+  const idx = '/Users/boyce/Projects/travel-expo/index.html', css = '/Users/boyce/Projects/travel-expo/style.css';
+  const A = [
+    {prompt:'幫我把首頁 hero 區塊改成深色背景，標題改成「2027 一起出國去」', tools:[G('hero')]},
+    {tools:[T('Read',{file_path:idx},18400)]}, {tools:[E(idx)]}, {tools:[E(css)]}, {reply:'已把 hero 改成深色背景並更新標題，同時調整了按鈕對比。'},
+    {prompt:'照 Figma 這個節點做出行程卡片元件', tools:[T('mcp__Figma__get_design_context',{nodeId:'12:348', fileKey:'aB3kQ'},22600)]},
+    {tools:[T('Read',{file_path:idx},18400)]}, {tools:[T('Write',{file_path:css, content:'.card{display:grid}\n'.repeat(1400)},200)], out:5800},
+    {tools:[T('Bash',{command:'npm run build'},12300)]}, {tools:[E(idx)]}, {reply:'行程卡片元件完成，包含圖片、天數標籤、價格與收藏按鈕，並依 Figma 設定了間距與圓角。'},
+    {prompt:'卡片在手機上太擠了，調整一下間距', tools:[G('.card')]}, {tools:[E(css)]}, {reply:'手機版卡片改為單欄，並把內距從 24px 調成 16px。'},
+    {prompt:'把 FAQ 做成可以展開收合的樣式', gap:14, miss:true, tools:[T('Read',{file_path:idx},18600)]}, {tools:[E(idx)]}, {tools:[E(css)]}, {reply:'FAQ 已改成 details／summary 結構，加上展開動畫與鍵盤操作支援。'},
+    {prompt:'跑一次 lighthouse 看看效能分數', tools:[T('Bash',{command:'npx lighthouse http://localhost:5173 --output=json'},14200)]}, {tools:[T('Read',{file_path:css},9800)]}, {tools:[E(css)]},
+    {reply:'效能分數 91。主要扣分在未壓縮的主視覺圖片，已改用 WebP 並加上 lazy loading。', out:900},
+    {prompt:'footer 的連結顏色改淡一點', tools:[E(css)]}, {reply:'footer 連結改為次要文字色，滑過時才顯示強調色。'},
+    {prompt:'標題字級在平板上再小一點', tools:[E(css)]}, {reply:'平板寬度下標題改為 32px。'},
+  ];
+  session('s-travel','/Users/boyce/Projects/travel-expo','claude-vscode', now-26*36e5, 31500, A);
+  const B = [
+    {prompt:'找出所有用到 patient_id 的地方', tools:[G('patient_id')]}, {tools:[T('Grep',{pattern:'patient_id', path:'.'},7400)]}, {reply:'共有 14 處使用 patient_id，集中在 api/ 與 supabase/functions/。'},
+    {prompt:'把 schema 匯出來，我要檢查 RLS 設定', tools:[T('Bash',{command:'supabase db dump --schema public'},15800)]}, {tools:[T('Read',{file_path:'/Users/boyce/Projects/fertsys/supabase/schema.sql'},11200)]},
+    {tools:[T('Agent',{description:'Find all RLS policies'},6100)]}, {reply:'有 3 張表缺少 RLS policy：cycles、embryo_notes、lab_results。'},
+    {prompt:'幫 cycles 補上 RLS', tools:[E('/Users/boyce/Projects/fertsys/supabase/migrations/0012_rls.sql')]}, {reply:'已新增 migration，限制只有同一診所的使用者能讀寫。'},
+  ];
+  session('s-fert','/Users/boyce/Projects/fertsys','cli', now-5*36e5, 29800, B);
+  return lines.map(l=>JSON.stringify(l)).join('\n');
+}
+
+/* ---------- web loading ---------- */
+async function loadFiles(files){
+  const list = [...files].filter(f => /\.jsonl?$/i.test(f.name));
+  if (!list.length){ $('#status').innerHTML = '<span class="chip sample">找不到 .jsonl 檔案。請選 ~/.claude/projects 裡的專案資料夾。</span>'; return; }
+  $('#status').innerHTML = `<span class="chip">解析 ${list.length} 個檔案中…</span>`;
+  const texts = await Promise.all(list.map(f => f.text()));
+  const ss = parseAll(texts);
+  if (!ss.length){ $('#status').innerHTML = '<span class="chip sample">這些檔案裡沒有含用量的記錄。</span>'; return; }
+  S.sample = false; S.fileCount = list.length; S.open = null; S.sel = null;
+  $('#range').value = '0'; setData(ss);
+}
+
+$('#range').onchange = () => { S.open = null; S.sel = null; render(); };
+$('#projFilter').onchange = () => { S.open = null; S.sel = null; S.shown = 60; render(); };
+$('#onlyFlag').onchange = () => renderTimeline();
+$('#moreBtn').onclick = () => { S.shown += 60; renderTimeline(); };
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderOverview, 150); });
+
+if (APP){
+  $('#dropPanel').hidden = true; $('#srcPanel').hidden = false;
+  $('#eyebrow').textContent = 'TokenMeter · 本機自動監控';
+  $('#refreshBtn').onclick = () => { $('#refreshBtn').textContent = '掃描中…'; post({refresh:true}); };
+  fillProjFilter(); render();
+  post({ready:true});
+} else {
+  $('#fileIn').onchange = e => loadFiles(e.target.files);
+  $('#dirIn').onchange = e => loadFiles(e.target.files);
+  $('#sampleBtn').onclick = () => { S.sample = true; S.open = null; S.sel = null; setData(parseAll([makeSample()])); };
+  const drop = $('#drop');
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', async e => {
+    const entries = [...(e.dataTransfer.items||[])].map(it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+    if (!entries.length){ loadFiles(e.dataTransfer.files); return; }
+    const files = [];
+    async function walk(en){
+      if (en.isFile) await new Promise(r => en.file(f => { files.push(f); r(); }, r));
+      else if (en.isDirectory){ const rd = en.createReader(); let batch; do { batch = await new Promise(r => rd.readEntries(r, () => r([]))); for (const c of batch) await walk(c); } while (batch.length); }
+    }
+    for (const en of entries) await walk(en);
+    loadFiles(files);
+  });
+  setData(parseAll([makeSample()]));
+  const first = [...S.rounds].reverse().find(r=>r.sev==='crit') || [...S.rounds].reverse().find(r=>r.sev);
+  if (first){ S.open = first; S.sel = first; renderTimeline(); renderOverview(); }
+}
+})();
+</script>
